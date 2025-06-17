@@ -2,18 +2,16 @@ const {getHashByData, fetchData} = require('./utils');
 
 // 6. Асинхронное получение данных
 module.exports = async function(urls, retryCount) {
-    const results = []
-
-    for (let i = 0; i < urls.length; i++) {
-        let count = 0
+    const urlPromises = urls.map(async (url) => {
+        // -1 чтобы учитывать первую попытку, которая не входит в retryCount
+        let count = -1
         while(count < retryCount) {
             try {
-                const response = await fetchData(urls[i])
+                const response = await fetchData(url)
                 const hashByData = await new Promise(resolve => getHashByData(response.data, resolve))
 
                 if(hashByData === response.hashSum) {
-                    results.push(response.data)
-                    break;
+                    return response.data
                 }
                 else {
                     count++
@@ -23,7 +21,9 @@ module.exports = async function(urls, retryCount) {
                 count++
             }
         }
-    }
+        return null
+    })
 
-    return results
+    const resolvedUrls = await Promise.all(urlPromises)
+    return resolvedUrls.filter(Boolean)
 }
